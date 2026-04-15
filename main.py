@@ -1,7 +1,9 @@
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
+from sqlalchemy import create_engine, text
 
 app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -9,13 +11,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 @app.get("/health")
 def health():
     return {"status": "online"}
-from sqlalchemy import create_engine
+
+
+# 🔗 DATABASE CONNECTION
 DATABASE_URL = "postgresql+psycopg://postgres.vzypnsvsmggemyjleuic:BrivioSecure2026!%23@aws-1-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require"
+
 engine = create_engine(DATABASE_URL)
 
+
+# 🧪 TEST CONNECTION
 @app.get("/db-test")
 def db_test():
     try:
@@ -25,11 +33,15 @@ def db_test():
         return {"database": str(e)}
 
 
-# 👇 ADD THIS PART HERE (new)
-@app.post("/create-user")
+# ✅ CREATE USER (NOW GET FOR TESTING)
+@app.get("/create-user")
 def create_user(email: str):
-    with engine.connect() as conn:
-        conn.execute(
-            f"insert into users (email) values ('{email}')"
-        )
-    return {"status": "user created"}
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                text("insert into users (email) values (:email)"),
+                {"email": email}
+            )
+        return {"status": "user created"}
+    except Exception as e:
+        return {"error": str(e)}
