@@ -13,7 +13,7 @@ app.add_middleware(
 def health():
     return {"status": "online"}
 from sqlalchemy import create_engine
-DATABASE_URL = "postgresql+psycopg://postgres.rkorxkgqnavnlgirrbvp:Damiennaes7%24@aws-1-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
+DATABASE_URL = "postgresql+psycopg://postgres.vzypnsvsmggemyjleuic:BrivioSecure2026!%23@aws-1-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require"
 engine = create_engine(DATABASE_URL)
 
 @app.get("/db-test")
