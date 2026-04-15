@@ -14,7 +14,7 @@ def health():
     return {"status": "online"}
 from sqlalchemy import create_engine
 
-DATABASE_URL = "postgresql+psycopg://postgres:Damiennaes7%24@aws-0-us-west-1.pooler.supabase.com:6543/postgres"
+DATABASE_URL = "postgresql+psycopg://postgres.rkorxkgqnavnlgirrbvp:Damiennaes7%24@aws-0-us-west-1.pooler.supabase.com:6543/postgres"
 engine = create_engine(DATABASE_URL)
 
 @app.get("/db-test")
