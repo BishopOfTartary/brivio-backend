@@ -23,3 +23,13 @@ def db_test():
             return {"database": "connected"}
     except Exception as e:
         return {"database": str(e)}
+
+
+# 👇 ADD THIS PART HERE (new)
+@app.post("/create-user")
+def create_user(email: str):
+    with engine.connect() as conn:
+        conn.execute(
+            f"insert into users (email) values ('{email}')"
+        )
+    return {"status": "user created"}
