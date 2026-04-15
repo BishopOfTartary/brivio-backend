@@ -22,5 +22,5 @@ def db_test():
     try:
         with engine.connect() as conn:
             return {"database": "connected"}
-    except:
-        return {"database": "failed"}
+    except Exception as e:
+        return {"database": str(e)}
