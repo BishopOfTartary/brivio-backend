@@ -1,6 +1,3 @@
-@app.get("/test")
-def test():
-    return {"message": "new code is live"}
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
@@ -23,6 +20,11 @@ engine = create_engine(DATABASE_URL)
 class UserAuth(BaseModel):
     email: str
     password: str
+
+# TEST ROUTE (NOW IN CORRECT PLACE)
+@app.get("/test")
+def test():
+    return {"message": "new code is live"}
 
 @app.get("/health")
 def health():
@@ -121,7 +123,7 @@ def login(user: UserAuth):
 
     return {"status": "logged in"}
 
-# 🔴 WEBSOCKET CHAT
+# WEBSOCKET CHAT
 
 active_connections = []
 
