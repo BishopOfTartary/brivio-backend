@@ -1,5 +1,10 @@
-click==8.3.2
-colorama==0.4.6
-h11==0.16.0
-uvicorn==0.44.0
-websockets==16.0
+fastapi
+uvicorn
+websockets
+sqlalchemy
+bcrypt
+pydantic
+psycopg
+click
+colorama
+h11
