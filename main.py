@@ -72,4 +72,67 @@ def get_users():
 
 @app.post("/register")
 def register(user: UserAuth):
-    hashed
+    hashed = bcrypt.hashpw(
+        user.password.encode("utf-8"),
+        bcrypt.gensalt()
+    ).decode("utf-8")
+
+    with engine.connect() as conn:
+        existing = conn.execute(
+            text("select * from users where email = :email"),
+            {"email": user.email}
+        ).fetchone()
+
+    if existing:
+        return {"error": "user already exists"}
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("insert into users (email, password) values (:email, :password)"),
+            {"email": user.email, "password": hashed}
+        )
+
+    return {"status": "registered"}
+
+@app.post("/login")
+def login(user: UserAuth):
+    with engine.connect() as conn:
+        existing = conn.execute(
+            text("select * from users where email = :email"),
+            {"email": user.email}
+        ).fetchone()
+
+    if not existing:
+        return {"error": "user not found"}
+
+    stored_password = existing._mapping.get("password")
+
+    if not stored_password:
+        return {"error": "no password set"}
+
+    if not bcrypt.checkpw(
+        user.password.encode("utf-8"),
+        stored_password.encode("utf-8")
+    ):
+        return {"error": "invalid password"}
+
+    return {"status": "logged in"}
+
+# 🔴 WEBSOCKET CHAT
+
+active_connections = []
+
+@app.websocket("/ws/chat")
+async def websocket_chat(websocket: WebSocket):
+    await websocket.accept()
+    active_connections.append(websocket)
+
+    try:
+        while True:
+            message = await websocket.receive_text()
+
+            for connection in active_connections:
+                await connection.send_text(message)
+
+    except WebSocketDisconnect:
+        active_connections.remove(websocket)
