@@ -1,6 +1,7 @@
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
 from sqlalchemy import create_engine, text
+from pydantic import BaseModel
 
 app = FastAPI()
 
@@ -12,6 +13,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ✅ HEALTH CHECK
 @app.get("/health")
 def health():
     return {"status": "online"}
@@ -33,14 +35,19 @@ def db_test():
         return {"database": str(e)}
 
 
-# ✅ CREATE USER (NOW GET FOR TESTING)
-@app.get("/create-user")
-def create_user(email: str):
+# 📦 REQUEST BODY MODEL (THIS IS NEW)
+class UserCreate(BaseModel):
+    email: str
+
+
+# ✅ CREATE USER (REAL API - POST)
+@app.post("/create-user")
+def create_user(user: UserCreate):
     try:
         with engine.begin() as conn:
             conn.execute(
                 text("insert into users (email) values (:email)"),
-                {"email": email}
+                {"email": user.email}
             )
         return {"status": "user created"}
     except Exception as e:
