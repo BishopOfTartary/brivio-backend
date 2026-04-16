@@ -1,3 +1,6 @@
+@app.get("/test")
+def test():
+    return {"message": "new code is live"}
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
