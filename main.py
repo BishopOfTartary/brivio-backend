@@ -16,28 +16,50 @@ app.add_middleware(
 def health():
     return {"status": "online"}
 
+
+# 🔗 DATABASE CONNECTION
 DATABASE_URL = "postgresql+psycopg://postgres.vzypnsvsmggemyjleuic:BrivioSecure2026!%23@aws-1-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require"
 
 engine = create_engine(DATABASE_URL)
 
+
+# 🧪 TEST CONNECTION
 @app.get("/db-test")
 def db_test():
-    with engine.connect() as conn:
-        return {"database": "connected"}
+    try:
+        with engine.connect() as conn:
+            return {"database": "connected"}
+    except Exception as e:
+        return {"database": str(e)}
+
 
 @app.post("/create-user")
 def create_user(data: dict):
-    email = data["email"]
-    with engine.begin() as conn:
-        conn.execute(
-            text("insert into users (email) values (:email)"),
-            {"email": email}
-        )
-    return {"status": "user created"}
+    try:
+        email = data.get("email", "").strip()
 
-@app.get("/users")
-def get_users():
-    with engine.connect() as conn:
-        result = conn.execute(text("select * from users"))
-        users = [dict(row._mapping) for row in result]
-    return users
+        if not email:
+            return {"error": "email is required"}
+
+        if "@" not in email:
+            return {"error": "invalid email"}
+
+        with engine.connect() as conn:
+            existing = conn.execute(
+                text("select * from users where email = :email"),
+                {"email": email}
+            ).fetchone()
+
+        if existing:
+            return {"error": "email already exists"}
+
+        with engine.begin() as conn:
+            conn.execute(
+                text("insert into users (email) values (:email)"),
+                {"email": email}
+            )
+
+        return {"status": "user created"}
+
+    except Exception as e:
+        return {"error": str(e)}
