@@ -37,7 +37,7 @@ def db_test():
 @app.get("/create-user")
 def create_user(email: str):
     try:
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             conn.execute(
                 text("insert into users (email) values (:email)"),
                 {"email": email}
