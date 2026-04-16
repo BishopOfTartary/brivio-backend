@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
 from pydantic import BaseModel
@@ -19,18 +19,15 @@ app.add_middleware(
 DATABASE_URL = "postgresql+psycopg://postgres.vzypnsvsmggemyjleuic:BrivioSecure2026!%23@aws-1-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require"
 engine = create_engine(DATABASE_URL)
 
-
 # MODELS
 class UserAuth(BaseModel):
     email: str
     password: str
 
-
 # HEALTH
 @app.get("/health")
 def health():
     return {"status": "online"}
-
 
 # DB TEST
 @app.get("/db-test")
@@ -41,8 +38,7 @@ def db_test():
     except Exception as e:
         return {"database": str(e)}
 
-
-# CREATE USER (BASIC)
+# CREATE USER
 @app.post("/create-user")
 def create_user(data: dict):
     email = data.get("email", "").strip()
@@ -70,7 +66,6 @@ def create_user(data: dict):
 
     return {"status": "user created"}
 
-
 # GET USERS
 @app.get("/users")
 def get_users():
@@ -82,11 +77,13 @@ def get_users():
     except Exception as e:
         return {"error": str(e)}
 
-
 # REGISTER
 @app.post("/register")
 def register(user: UserAuth):
-    hashed = bcrypt.hashpw(user.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    hashed = bcrypt.hashpw(
+        user.password.encode("utf-8"),
+        bcrypt.gensalt()
+    ).decode("utf-8")
 
     with engine.connect() as conn:
         existing = conn.execute(
@@ -105,7 +102,6 @@ def register(user: UserAuth):
 
     return {"status": "registered"}
 
-
 # LOGIN
 @app.post("/login")
 def login(user: UserAuth):
@@ -123,7 +119,29 @@ def login(user: UserAuth):
     if not stored_password:
         return {"error": "no password set"}
 
-    if not bcrypt.checkpw(user.password.encode('utf-8'), stored_password.encode('utf-8')):
+    if not bcrypt.checkpw(
+        user.password.encode("utf-8"),
+        stored_password.encode("utf-8")
+    ):
         return {"error": "invalid password"}
 
     return {"status": "logged in"}
+
+# 🔴 WEBSOCKET CHAT (FINAL CLEAN VERSION)
+
+active_connections = []
+
+@app.websocket("/ws/chat")
+async def websocket_chat(websocket: WebSocket):
+    await websocket.accept()
+    active_connections.append(websocket)
+
+    try:
+        while True:
+            message = await websocket.receive_text()
+
+            for connection in active_connections:
+                await connection.send_text(message)
+
+    except WebSocketDisconnect:
+        active_connections.remove(websocket)
