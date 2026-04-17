@@ -1,3 +1,4 @@
+print("NEW VERSION DEPLOYED")
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
@@ -100,7 +101,6 @@ async def websocket_chat(websocket: WebSocket):
         while True:
             data = await websocket.receive_text()
 
-            # broadcast to ALL users
             for connection in active_connections:
                 await connection.send_text(data)
 
