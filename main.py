@@ -89,13 +89,20 @@ def login(user: UserAuth):
 
 # ---------- WEBSOCKET (STABLE TEST VERSION) ----------
 
+active_connections = []
+
 @app.websocket("/ws/chat")
 async def websocket_chat(websocket: WebSocket):
     await websocket.accept()
+    active_connections.append(websocket)
 
     try:
         while True:
             data = await websocket.receive_text()
-            await websocket.send_text(f"echo: {data}")
+
+            # broadcast to ALL users
+            for connection in active_connections:
+                await connection.send_text(data)
+
     except WebSocketDisconnect:
-        print("client disconnected")
+        active_connections.remove(websocket)
