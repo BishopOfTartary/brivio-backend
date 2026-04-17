@@ -1,9 +1,11 @@
 print("NEW VERSION DEPLOYED")
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
 from pydantic import BaseModel
 import bcrypt
+import json
 
 app = FastAPI()
 
@@ -31,7 +33,6 @@ def test():
     return {"message": "backend live"}
 
 # ---------- USERS ----------
-
 @app.post("/create-user")
 def create_user(data: dict):
     email = data.get("email", "").strip()
@@ -54,7 +55,6 @@ def get_users():
         return [dict(row._mapping) for row in result]
 
 # ---------- AUTH ----------
-
 @app.post("/register")
 def register(user: UserAuth):
     hashed = bcrypt.hashpw(
@@ -88,21 +88,38 @@ def login(user: UserAuth):
 
     return {"status": "logged in"}
 
-# ---------- WEBSOCKET (STABLE TEST VERSION) ----------
-
-active_connections = []
+# ---------- CHAT (WORKING) ----------
+chat_connections = []
 
 @app.websocket("/ws/chat")
 async def websocket_chat(websocket: WebSocket):
     await websocket.accept()
-    active_connections.append(websocket)
+    chat_connections.append(websocket)
 
     try:
         while True:
             data = await websocket.receive_text()
+            for conn in chat_connections:
+                await conn.send_text(data)
+    except WebSocketDisconnect:
+        chat_connections.remove(websocket)
 
-            for connection in active_connections:
-                await connection.send_text(data)
+# ---------- WEBRTC SIGNALING ----------
+rtc_connections = []
+
+@app.websocket("/ws/rtc")
+async def websocket_rtc(websocket: WebSocket):
+    await websocket.accept()
+    rtc_connections.append(websocket)
+
+    try:
+        while True:
+            message = await websocket.receive_text()
+
+            # forward signaling data to all other clients
+            for conn in rtc_connections:
+                if conn != websocket:
+                    await conn.send_text(message)
 
     except WebSocketDisconnect:
-        active_connections.remove(websocket)
+        rtc_connections.remove(websocket)
