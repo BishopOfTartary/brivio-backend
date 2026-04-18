@@ -1,4 +1,4 @@
-print("FINAL CORS FIX")
+print("FINAL REAL FIX")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,32 +6,30 @@ from pydantic import BaseModel
 import stripe
 import os
 
-# -------------------- STRIPE --------------------
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
-# -------------------- APP --------------------
 app = FastAPI()
 
-# 🔥 FORCE CORS FIX (this is what fixes your issue)
+# 🔥 HARD CORS FIX
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # allow everything for testing
-    allow_credentials=True,
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# -------------------- MODEL --------------------
 class CheckoutItem(BaseModel):
     name: str
     price: int
 
-# -------------------- ROOT --------------------
 @app.get("/")
 def root():
     return {"status": "backend running"}
 
-# -------------------- CHECKOUT --------------------
+@app.options("/{rest_of_path:path}")
+async def preflight_handler(rest_of_path: str):
+    return {}
+
 @app.post("/create-checkout-session")
 def create_checkout(item: CheckoutItem):
     session = stripe.checkout.Session.create(
