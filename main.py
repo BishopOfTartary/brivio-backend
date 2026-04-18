@@ -1,7 +1,11 @@
-print("BACKEND FINAL LOADED")
+print("NEW VERSION DEPLOYED")
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import create_engine, text
+from pydantic import BaseModel
+import bcrypt
+import json
 
 app = FastAPI()
 
@@ -13,42 +17,49 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------- HEALTH ----------
-@app.get("/")
-def root():
-    return {"status": "backend running"}
+DATABASE_URL = "postgresql+psycopg://postgres.vzypnsvsmggemyjleuic:BrivioSecure2026!%23@aws-1-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require"
+engine = create_engine(DATABASE_URL)
+
+class UserAuth(BaseModel):
+    email: str
+    password: str
 
 @app.get("/health")
 def health():
     return {"status": "online"}
 
 # ---------- CHAT ----------
-chat_clients = []
+chat_connections = []
 
 @app.websocket("/ws/chat")
-async def chat(ws: WebSocket):
-    await ws.accept()
-    chat_clients.append(ws)
+async def websocket_chat(websocket: WebSocket):
+    await websocket.accept()
+    chat_connections.append(websocket)
+
     try:
         while True:
-            msg = await ws.receive_text()
-            for c in chat_clients:
-                await c.send_text(msg)
+            data = await websocket.receive_text()
+            for conn in chat_connections:
+                await conn.send_text(data)
     except WebSocketDisconnect:
-        chat_clients.remove(ws)
+        chat_connections.remove(websocket)
 
-# ---------- RTC SIGNALING ----------
-rtc_clients = []
+# ---------- WEBRTC SIGNALING ----------
+rtc_connections = []
 
 @app.websocket("/ws/rtc")
-async def rtc(ws: WebSocket):
-    await ws.accept()
-    rtc_clients.append(ws)
+async def websocket_rtc(websocket: WebSocket):
+    await websocket.accept()
+    rtc_connections.append(websocket)
+
     try:
         while True:
-            msg = await ws.receive_text()
-            for c in rtc_clients:
-                if c != ws:
-                    await c.send_text(msg)
+            message = await websocket.receive_text()
+
+            # broadcast signaling to others
+            for conn in rtc_connections:
+                if conn != websocket:
+                    await conn.send_text(message)
+
     except WebSocketDisconnect:
-        rtc_clients.remove(ws)
+        rtc_connections.remove(websocket)
