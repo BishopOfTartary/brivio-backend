@@ -1,10 +1,8 @@
-print("CORS FIX DEPLOYED")
+print("FINAL CORS FIX")
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine, text
 from pydantic import BaseModel
-import bcrypt
 import stripe
 import os
 
@@ -14,23 +12,16 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 # -------------------- APP --------------------
 app = FastAPI()
 
-# ✅ FIXED CORS (THIS IS THE KEY CHANGE)
+# 🔥 FORCE CORS FIX (this is what fixes your issue)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "https://brivio-frontend.onrender.com"
-    ],
+    allow_origins=["*"],  # allow everything for testing
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# -------------------- DATABASE --------------------
-DATABASE_URL = "postgresql+psycopg://postgres.vzypnsvsmggemyjleuic:BrivioSecure2026!%23@aws-1-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require"
-engine = create_engine(DATABASE_URL)
-
-# -------------------- MODELS --------------------
+# -------------------- MODEL --------------------
 class CheckoutItem(BaseModel):
     name: str
     price: int
@@ -40,42 +31,22 @@ class CheckoutItem(BaseModel):
 def root():
     return {"status": "backend running"}
 
-# -------------------- STRIPE --------------------
+# -------------------- CHECKOUT --------------------
 @app.post("/create-checkout-session")
 def create_checkout(item: CheckoutItem):
     session = stripe.checkout.Session.create(
         payment_method_types=["card"],
         mode="payment",
-        line_items=[
-            {
-                "price_data": {
-                    "currency": "usd",
-                    "product_data": {
-                        "name": item.name,
-                    },
-                    "unit_amount": item.price,
-                },
-                "quantity": 1,
-            }
-        ],
+        line_items=[{
+            "price_data": {
+                "currency": "usd",
+                "product_data": {"name": item.name},
+                "unit_amount": item.price,
+            },
+            "quantity": 1,
+        }],
         success_url="http://localhost:5173/success",
         cancel_url="http://localhost:5173/cancel",
     )
 
     return {"url": session.url}
-
-# -------------------- CHAT --------------------
-active_chat = []
-
-@app.websocket("/ws/chat")
-async def chat(ws: WebSocket):
-    await ws.accept()
-    active_chat.append(ws)
-
-    try:
-        while True:
-            msg = await ws.receive_text()
-            for c in active_chat:
-                await c.send_text(msg)
-    except WebSocketDisconnect:
-        active_chat.remove(ws)
