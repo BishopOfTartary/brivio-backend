@@ -1,10 +1,7 @@
 fastapi
 uvicorn
-websockets
 sqlalchemy
-bcrypt
+psycopg[binary]
 pydantic
-psycopg
-click
-colorama
-h11
+bcrypt
+stripe
