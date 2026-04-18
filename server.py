@@ -1,32 +1,38 @@
+print("SERVER ACTIVE")
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# ---- PROOF ROUTE ----
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.get("/")
 def root():
-    return {"message": "SERVER.PY ACTIVE"}
+    return {"status": "backend running"}
 
 @app.get("/health")
 def health():
     return {"status": "online"}
 
-# ---- USERS TEST (so frontend stops 404) ----
-@app.get("/users")
-def users():
-    return [{"id": 1, "email": "test@brivio.com"}]
+# --- RTC signaling ---
+clients = []
 
-# ---- WEBSOCKET ----
-connections = []
-
-@app.websocket("/ws/chat")
-async def chat(ws: WebSocket):
+@app.websocket("/ws/rtc")
+async def rtc(ws: WebSocket):
     await ws.accept()
-    connections.append(ws)
+    clients.append(ws)
     try:
         while True:
             msg = await ws.receive_text()
-            for c in connections:
-                await c.send_text(msg)
+            for c in clients:
+                if c != ws:
+                    await c.send_text(msg)
     except WebSocketDisconnect:
-        connections.remove(ws)
+        clients.remove(ws)
