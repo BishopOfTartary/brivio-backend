@@ -1,50 +1,70 @@
-print("FINAL REAL FIX")
+print("DATABASE WORKING VERSION")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import create_engine, text
 from pydantic import BaseModel
-import stripe
-import os
-
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 app = FastAPI()
 
-# 🔥 HARD CORS FIX
+# 🔥 CORS (required)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-class CheckoutItem(BaseModel):
-    name: str
-    price: int
+# 🔥 DATABASE
+DATABASE_URL = "postgresql+psycopg://postgres.vzypnsvsmggemyjleuic:BrivioSecure2026!%23@aws-1-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require"
+engine = create_engine(DATABASE_URL)
 
+# 🔥 MODELS
+class ArtItem(BaseModel):
+    title: str
+    price: str
+    image: str
+
+class BusinessItem(BaseModel):
+    title: str
+    price: str
+
+# 🔥 TEST
 @app.get("/")
 def root():
-    return {"status": "backend running"}
+    return {"status": "backend live"}
 
-@app.options("/{rest_of_path:path}")
-async def preflight_handler(rest_of_path: str):
-    return {}
+# 🔥 ADD ART
+@app.post("/add-art")
+def add_art(item: ArtItem):
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO art (title, price, image) VALUES (:title, :price, :image)"),
+            item.dict()
+        )
+    return {"status": "saved"}
 
-@app.post("/create-checkout-session")
-def create_checkout(item: CheckoutItem):
-    session = stripe.checkout.Session.create(
-        payment_method_types=["card"],
-        mode="payment",
-        line_items=[{
-            "price_data": {
-                "currency": "usd",
-                "product_data": {"name": item.name},
-                "unit_amount": item.price,
-            },
-            "quantity": 1,
-        }],
-        success_url="http://localhost:5173/success",
-        cancel_url="http://localhost:5173/cancel",
-    )
+# 🔥 GET ART
+@app.get("/art")
+def get_art():
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT * FROM art ORDER BY id DESC"))
+        return [dict(row._mapping) for row in result]
 
-    return {"url": session.url}
+# 🔥 ADD BUSINESS
+@app.post("/add-business")
+def add_business(item: BusinessItem):
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO business (title, price) VALUES (:title, :price)"),
+            item.dict()
+        )
+    return {"status": "saved"}
+
+# 🔥 GET BUSINESS
+@app.get("/business")
+def get_business():
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT * FROM business ORDER BY id DESC"))
+        return [dict(row._mapping) for row in result]
