@@ -1,5 +1,3 @@
-print("PROFILES + OWNERSHIP LIVE")
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
@@ -16,7 +14,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATABASE_URL = "postgresql+psycopg://postgres.vzypnsvsmggemyjleuic:BrivioSecure2026!%23@aws-1-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require"
+DATABASE_URL = "YOUR_SUPABASE_URL"
 engine = create_engine(DATABASE_URL)
 
 # ---------- MODELS ----------
@@ -29,93 +27,104 @@ class Post(BaseModel):
     type: str
     title: str
     content_url: str
-    price: str = ""
 
-class Save(BaseModel):
+class Interaction(BaseModel):
     user_email: str
     post_id: int
 
-# ---------- ROOT ----------
-@app.get("/")
-def root():
-    return {"status": "profiles backend running"}
+class Comment(BaseModel):
+    user_email: str
+    post_id: int
+    text: str
+
+class Follow(BaseModel):
+    follower: str
+    following: str
 
 # ---------- AUTH ----------
 @app.post("/register")
 def register(user: User):
     hashed = bcrypt.hashpw(user.password.encode(), bcrypt.gensalt()).decode()
-
     with engine.begin() as conn:
         conn.execute(
-            text("insert into users (email, password) values (:email, :password)"),
-            {"email": user.email, "password": hashed}
+            text("insert into users (email,password) values (:e,:p)"),
+            {"e": user.email, "p": hashed}
         )
-
     return {"status": "registered"}
 
 @app.post("/login")
 def login(user: User):
     with engine.connect() as conn:
-        result = conn.execute(
-            text("select * from users where email = :email"),
-            {"email": user.email}
+        u = conn.execute(
+            text("select * from users where email=:e"),
+            {"e": user.email}
         ).fetchone()
 
-    if not result:
-        return {"error": "user not found"}
+    if not u:
+        return {"error": "not found"}
 
-    stored = result._mapping["password"]
-
-    if not bcrypt.checkpw(user.password.encode(), stored.encode()):
+    if not bcrypt.checkpw(user.password.encode(), u.password.encode()):
         return {"error": "wrong password"}
 
     return {"status": "success", "email": user.email}
 
 # ---------- POSTS ----------
-@app.post("/create-post")
-def create_post(post: Post):
+@app.post("/post")
+def post(p: Post):
     with engine.begin() as conn:
-        conn.execute(
-            text("""
-            insert into posts (user_email, type, title, content_url, price)
-            values (:user_email, :type, :title, :content_url, :price)
-            """),
-            post.dict()
-        )
-    return {"status": "posted"}
+        conn.execute(text("""
+            insert into posts (user_email,type,title,content_url)
+            values (:u,:t,:ti,:c)
+        """), {"u":p.user_email,"t":p.type,"ti":p.title,"c":p.content_url})
+    return {"status":"posted"}
 
+# 🔥 POSTS WITH LIKE COUNTS
 @app.get("/posts")
-def get_posts():
+def posts():
     with engine.connect() as conn:
-        result = conn.execute(text("select * from posts order by id desc"))
-        return [dict(row._mapping) for row in result]
+        r = conn.execute(text("""
+            select p.*, count(l.id) as likes
+            from posts p
+            left join likes l on p.id = l.post_id
+            group by p.id
+            order by p.id desc
+        """))
+        return [dict(x._mapping) for x in r]
 
-# ---------- USER POSTS (PROFILE) ----------
-@app.get("/user-posts/{email}")
-def user_posts(email: str):
-    with engine.connect() as conn:
-        result = conn.execute(
-            text("select * from posts where user_email = :email order by id desc"),
-            {"email": email}
-        )
-        return [dict(row._mapping) for row in result]
-
-# ---------- SAVES ----------
-@app.post("/save")
-def save_post(data: Save):
+# ---------- LIKE ----------
+@app.post("/like")
+def like(i: Interaction):
     with engine.begin() as conn:
-        conn.execute(
-            text("insert into saves (user_email, post_id) values (:user_email, :post_id)"),
-            data.dict()
-        )
-    return {"status": "saved"}
+        conn.execute(text("""
+            insert into likes (user_email,post_id)
+            values (:u,:p)
+        """), {"u":i.user_email,"p":i.post_id})
+    return {"status":"liked"}
 
-@app.get("/saved/{email}")
-def get_saved(email: str):
+# ---------- COMMENTS ----------
+@app.post("/comment")
+def comment(c: Comment):
+    with engine.begin() as conn:
+        conn.execute(text("""
+            insert into comments (user_email,post_id,text)
+            values (:u,:p,:t)
+        """), {"u":c.user_email,"p":c.post_id,"t":c.text})
+    return {"status":"commented"}
+
+@app.get("/comments/{post_id}")
+def get_comments(post_id:int):
     with engine.connect() as conn:
-        result = conn.execute(text("""
-            select p.* from posts p
-            join saves s on p.id = s.post_id
-            where s.user_email = :email
-        """), {"email": email})
-        return [dict(row._mapping) for row in result]
+        r = conn.execute(text("""
+            select * from comments where post_id=:p
+        """), {"p":post_id})
+        return [dict(x._mapping) for x in r]
+
+# ---------- FOLLOW ----------
+@app.post("/follow")
+def follow(f: Follow):
+    with engine.begin() as conn:
+        conn.execute(text("""
+            insert into follows (follower,following)
+            values (:f,:g)
+        """), {"f":f.follower,"g":f.following})
+    return {"status":"followed"}
