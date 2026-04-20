@@ -83,12 +83,25 @@ def post(p: Post):
 def posts():
     with engine.connect() as conn:
         r = conn.execute(text("""
-            select p.*, count(l.id) as likes
-            from posts p
-            left join likes l on p.id = l.post_id
-            group by p.id
-            order by p.id desc
+            SELECT 
+                p.*,
+                COUNT(DISTINCT l.id) AS likes,
+                COUNT(DISTINCT c.id) AS comments,
+
+                (
+                    COUNT(DISTINCT l.id) * 2 +
+                    COUNT(DISTINCT c.id) * 3 +
+                    (EXTRACT(EPOCH FROM NOW() - p.created_at) * -0.0001)
+                ) AS score
+
+            FROM posts p
+            LEFT JOIN likes l ON p.id = l.post_id
+            LEFT JOIN comments c ON p.id = c.post_id
+
+            GROUP BY p.id
+            ORDER BY score DESC
         """))
+
         return [dict(x._mapping) for x in r]
 
 # ---------- LIKE ----------
